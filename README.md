@@ -1,13 +1,20 @@
+# **Crawler Bisnis.com – Backtrack & Standard Mode**
+
+Repository GitHub: **[https://github.com/baiq99/crawler_bisniscom.git](https://github.com/baiq99/crawler_bisniscom.git)**
+Video Demonstrasi: **[https://drive.google.com/file/d/1p4n3tvK16tn1z83WjWOgcjo61dklEFce/view?usp=sharing](https://drive.google.com/file/d/1p4n3tvK16tn1z83WjWOgcjo61dklEFce/view?usp=sharing)**
+
+---
+
 Crawler ini dibangun menggunakan **Scrapy** untuk mengambil artikel dari **Bisnis.com**.
-Proyek menyediakan **dua mode operasional**:
+Tersedia **dua mode operasional**:
 
 1. **Backtrack Mode**
-   Mengambil artikel dalam rentang tanggal tertentu (misal 1–15 November 2025).
+   Mengambil artikel pada **rentang tanggal tertentu**.
 
 2. **Standard Mode**
-   Long-running process yang secara berkala menarik artikel terbaru dengan interval waktu terkonfigurasi.
+   Berjalan sebagai **long-running process** yang secara berkala mengambil artikel terbaru dengan interval yang bisa dikonfigurasi.
 
-Output masing-masing mode berupa file **JSON Lines (.jsonl)** berisi artikel dengan struktur:
+Output kedua mode berupa file **JSON Lines (.jsonl)** dengan struktur seperti:
 
 ```json
 {
@@ -18,49 +25,54 @@ Output masing-masing mode berupa file **JSON Lines (.jsonl)** berisi artikel den
 }
 ```
 
+---
 
-## **1. Fitur Utama**
+# **1. Fitur Utama**
 
-### Scraper untuk seluruh domain Bisnis.com
+### Mendukung seluruh subdomain Bisnis.com
 
 * bisnis.com
 * kabar24.bisnis.com
 * market.bisnis.com
-* teknologi.bisnis.com
 * finansial.bisnis.com
-* dan subdomain utama lainnya
+* teknologi.bisnis.com
+* dan subdomain umum lainnya
 
-### Extract Field:
+### Extract Field Lengkap
 
 * Judul
-* Tautan
-* Isi artikel (dibersihkan dari script/style/“baca juga”/noise)
-* Tanggal terbit (dibersihkan & dinormalisasi ke Asia/Jakarta ISO-8601)
+* Link artikel
+* Isi artikel (*cleaned*)
+* Tanggal terbit (ISO 8601, zona waktu Asia/Jakarta)
 
-### Output JSONL dengan data yang benar-benar valid
+### Data Cleaning Otomatis
 
-Tersedia script validasi & dedup.
+* Menghapus “Baca Juga”
+* Menghapus script / tag HTML tersembunyi
+* Normalisasi whitespace
+* Validasi konten minimum
 
-### Interval-based continuous crawling
+### JSON Lines Output + Validator
 
-Mode *standard* berjalan terus-menerus dan mengambil only-new-articles.
+Tersedia script validasi & dedup untuk memastikan data rapi dan tanpa duplikasi.
 
-### Backtrack historical crawling
+### Dua Mode Pengambilan Data
 
-Mode *backtrack* mengambil berita pada rentang tanggal besar sekaligus.
+* **Backtrack** → historical data
+* **Standard** → real-time / interval-based continuous crawling
 
 ---
 
-## **2. Cara Instalasi**
+# **2. Cara Instalasi**
 
-### **1. Clone & masuk folder**
+### **1. Clone repository**
 
 ```bash
-git clone <repo_url>
-cd nolimit-crawler
+git clone https://github.com/baiq99/crawler_bisniscom.git
+cd crawler_bisniscom
 ```
 
-### **2. Aktifkan virtual environment**
+### **2. Buat & aktifkan virtual environment**
 
 ```bash
 python -m venv .venv
@@ -77,89 +89,112 @@ pip install -r requirements.txt
 
 # **3. Cara Menjalankan**
 
-## **A. Backtrack Mode (Crawl berdasarkan rentang tanggal)**
+## **A. Backtrack Mode – Crawl Berdasarkan Rentang Tanggal**
 
-Jalankan:
+Gunakan format:
+
+```
+python -m scripts.backtrack "YYYY-MM-DD" "YYYY-MM-DD"
+```
+
+Contoh:
 
 ```bash
-python -m scripts.backtrack --start 2025-11-01 --end 2025-11-15 --output data/outputs/bisnis_backtrack.jsonl --rate 1.0 --max-pages 400
+python -m scripts.backtrack "2025-11-01" "2025-11-15"
 ```
 
-Hasil akan disimpan di:
+Output akan otomatis tersimpan ke:
 
 ```
-data/outputs/bisnis_backtrack_YYYY-MM-DD_YYYY-MM-DD.jsonl
+data/outputs/bisnis_backtrack_2025-11-01_2025-11-15.jsonl
 ```
 
 ---
 
-## **B. Standard Mode (Long Running Process)**
+## **B. Standard Mode – Long Running Process (Real-Time Fetching)**
 
-Mode ini berjalan selamanya dan mengambil artikel baru berdasarkan waktu terakhir.
-
-### Jalankan:
+Jalankan mode Standard:
 
 ```bash
 python -m scripts.standard 900
 ```
 
-`900` berarti interval 15 menit.
-Output disimpan otomatis di `data/outputs/`.
+Keterangan:
 
-File `data/last_run.txt` akan diperbarui setiap proses selesai.
+* `900` = interval scraping **15 menit**
+* Setiap loop akan:
+
+  1. Membaca `last_run.txt`
+  2. Mengambil artikel terbaru
+  3. Menyimpan output di `data/outputs/`
+  4. Memperbarui `last_run.txt`
 
 ---
 
 # **4. Arsitektur Sistem**
 
-Crawler mengikuti arsitektur Scrapy standar namun ditambah modul pendukung:
+Crawler mengikuti pola Scrapy, terdiri dari folder inti:
 
 ```
 bisnis_crawler/
 │
 ├── spiders/
 │   ├── bisnis_spider.py     ← Spider utama Bisnis.com
-│   └── helpers.py           ← Cleaning, date parser, paragraph normalizer
+│   └── helpers.py           ← Cleaning, date parsing, normalisasi paragraf
 │
 ├── items.py                 ← Struktur data artikel
-├── pipelines.py             ← (opsional) pipeline data
+├── pipelines.py             ← (opsional) pipeline
 └── settings.py              ← konfigurasi Scrapy
 ```
 
-Supporting scripts:
+Entry points (runner):
 
 ```
 scripts/
-├── backtrack.py             ← mode crawling historical
-└── standard.py              ← long-running real-time crawler
+├── backtrack.py             ← mode historical crawling
+└── standard.py              ← interval-based continuous crawler
 ```
 
-Data management:
+Folder output:
 
 ```
 data/
-├── outputs/                 ← semua output JSONL
-└── last_run.txt             ← penanda waktu terakhir crawling
+├── outputs/                 ← semua file JSONL disimpan di sini
+└── last_run.txt             ← timestamp terakhir mode standard
 ```
 
-### **Helper Layer**
+---
 
-Bagian yang menguatkan kualitas data:
+# **Helper Layer**
 
 * Normalisasi whitespace & tanda baca
-* Menghapus “Baca juga”, fragment HTML, dataLayer
-* Cleaning agresif pada konten
-* Parser tanggal → ISO 8601 dengan Asia/Jakarta
-
-### **Spider Layer**
-
-* Navigasi link artikel `/read/`
-* Filter konten non-artikel (video, infografik, premium)
-* Support start_date & end_date untuk mode backtrack & standard
-
-### **Runner Layer (Scripts)**
-
-* `backtrack.py` → mengambil artikel historis dalam range tanggal
-* `standard.py` → loop otomatis interval-based, update last_run
+* Remove “Baca juga”
+* Remove fragment HTML / dataLayer
+* Cleaning konten agresif
+* Parsing tanggal → ISO 8601 (Asia/Jakarta)
 
 ---
+
+# **Spider Layer**
+
+* Mengambil semua link `/read/`
+* Menghindari konten non-artikel (infografik, video, premium)
+* Mendukung filtering start_date & end_date
+* Validasi panjang konten minimal
+
+---
+
+# **Runner Layer**
+
+## **backtrack.py**
+
+* Masukan: start_date, end_date
+* Mode historical crawling
+
+## **standard.py**
+
+* Mengambil artikel terbaru
+* Interval configurable
+* Menyimpan file baru setiap iterasi
+
+
